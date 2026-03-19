@@ -1,6 +1,8 @@
 import torch
+import torch.nn.functional as F
 import einops
 import collections
+from typing import Dict, Any, Optional
 
 class TriplaneNeRFRenderer(torch.nn.Module):
     def __init__(self, radius, valid_thresh, num_samples_per_ray):
@@ -131,9 +133,15 @@ class TriplaneNeRFRenderer(torch.nn.Module):
             net_out = chunk_batch(_query_chunk, self.chunk_size, positions)
         else:
             net_out = _query_chunk(positions)
+        if net_out is None:
+            # Handle empty positional batch gracefully
+            empty_color = torch.empty(*input_shape, 3, device=positions.device)
+            empty_density = torch.empty(*input_shape, 1, device=positions.device)
+            return {"density_act": empty_density, "color": empty_color}
+            
         net_out["density_act"] = get_activation(self.density_activation)(net_out["density"] + self.density_bias)
         net_out["color"] = get_activation(self.color_activation)(net_out["features"])
-        net_out = {k: v.view(*input_shape, -1) for k, v in net_out.items()}
+        net_out = {k: v.view(*input_shape, v.shape[-1]) for k, v in net_out.items()}
         return net_out
 
     def forward(self, decoder, triplane, rays_o, rays_d):  #, **kwargs
