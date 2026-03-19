@@ -177,7 +177,7 @@ def train(image_size, batch_size, epochs, checkpoint_path, best_checkpoint_file=
         return ray_origins, ray_directions
 
     is_train = 1
-    dataset_train = VisionDataset(is_train=is_train, data_path='./data/image/', image_size=image_size)
+    dataset_train = VisionDataset(is_train=is_train, data_path='/data/image/', image_size=image_size)
     dataloader_train = torch.utils.data.DataLoader(dataset_train, batch_size=batch_size, shuffle=bool(is_train), num_workers=1, drop_last=bool(is_train), collate_fn=None, pin_memory=False)
 
     #images,masks,poses = next(iter(dataloader_train))
@@ -313,7 +313,7 @@ def train(image_size, batch_size, epochs, checkpoint_path, best_checkpoint_file=
         #torch.cuda.empty_cache()
 
 def main(device=['cpu','cuda'][torch.cuda.is_available()]):
-    #infer(image_size=512, image_path=['./data/image/test/images/Lion.png'][0], output_file='./outs/stereo/test/Lion.obj', remove_bg=True, foreground_ratio=0.85, render_video=True, device=device)
+    #infer(image_size=512, image_path=['/data/image/test/images/Lion.png'][0], output_file='./outs/stereo/test/Lion.obj', remove_bg=True, foreground_ratio=0.85, render_video=True, device=device)
     train(image_size=[512,64][1], batch_size=1, epochs=10, checkpoint_path='./outs/ckpt/', best_checkpoint_file='./outs/ckpt/checkpoint.pth', device=device)
 
 if __name__ == '__main__':  #cls; python -Bu superv.py
