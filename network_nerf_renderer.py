@@ -185,9 +185,9 @@ class TriplaneNeRFRenderer(torch.nn.Module):
         t_near, t_far = t_near[rays_valid], t_far[rays_valid]
         t_vals = torch.linspace(0, 1, self.num_samples_per_ray + 1, device=triplane.device)
         t_mid = (t_vals[:-1] + t_vals[1:]) / 2.0
-        z_vals = t_near * (1 - t_mid[None]) + t_far * t_mid[None]  # (N_rays, N_samples)
-        #print(rays_o.shape, rays_d.shape, '  ', z_vals.shape)
-        xyz = (rays_o[:, None, :] + z_vals[..., None] * rays_d[..., None, :])  # (N_rays, N_sample, 3)
+        z_vals = t_near * (1 - t_mid[None]) + t_far * t_mid[None]  # (N_valid_rays, N_samples)
+        # Index rays_o and rays_d by rays_valid to match z_vals
+        xyz = (rays_o[rays_valid][:, None, :] + z_vals[..., None] * rays_d[rays_valid][..., None, :])  # (N_valid_rays, N_sample, 3)
         mlp_out = self.query_triplane(decoder=decoder, positions=xyz, triplane=triplane)
         eps = 1e-10
         deltas = t_vals[1:] - t_vals[:-1]  # (N_rays, N_samples)

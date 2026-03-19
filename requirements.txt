@@ -11,5 +11,6 @@ Pillow
 scipy
 tqdm
 lpips
+carvekit
 # note: pytorch3d and torchmcubes may need custom installation based on your CUDA version.
 # see network.py and code/focus.py comments for hints.
