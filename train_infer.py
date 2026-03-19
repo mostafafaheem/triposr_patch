@@ -239,9 +239,12 @@ def train(image_size, batch_size, epochs, checkpoint_path, best_checkpoint_file=
         PIL.Image.fromarray((alpha_i*255).astype('uint8')).save(temp_path+'/image__epoch_{:04d}__index_{:04d}__{:s}__alpha_1i.png'.format(epoch,index,flag))
         PIL.Image.fromarray((alpha_o*255).astype('uint8')).save(temp_path+'/image__epoch_{:04d}__index_{:04d}__{:s}__alpha_2o.png'.format(epoch,index,flag))
 
+    import tqdm
+
     for epoch in range(0, epochs):
         losses = []
-        for index, (images,masks,poses) in enumerate(dataloader_train):
+        pbar_train = tqdm.tqdm(dataloader_train, desc=f"Epoch {epoch}/{epochs} [Train]")
+        for index, (images,masks,poses) in enumerate(pbar_train):
             target_img = images.to(device)
             target_msk = masks.to(device)
             target_pos = poses.to(device)
@@ -287,6 +290,7 @@ def train(image_size, batch_size, epochs, checkpoint_path, best_checkpoint_file=
 
 
             losses.append(loss.item())
+            pbar_train.set_postfix(loss=f"{loss.item():.4f}")
             optimizer.zero_grad()
             loss.backward()
             optimizer.step()   
@@ -308,8 +312,9 @@ def train(image_size, batch_size, epochs, checkpoint_path, best_checkpoint_file=
                 dataloader_valid = torch.utils.data.DataLoader(dataset_valid, batch_size=batch_size, shuffle=False, num_workers=1)
                 model.eval()
                 valid_losses = []
+                pbar_valid = tqdm.tqdm(dataloader_valid, desc=f"Epoch {epoch}/{epochs} [Valid]")
                 with torch.no_grad():
-                    for val_idx, (v_images, v_masks, v_poses) in enumerate(dataloader_valid):
+                    for val_idx, (v_images, v_masks, v_poses) in enumerate(pbar_valid):
                         v_img = v_images.to(device)[:, None]
                         v_msk = v_masks.to(device)[:, None]
                         v_pos = v_poses.to(device)
@@ -337,6 +342,7 @@ def train(image_size, batch_size, epochs, checkpoint_path, best_checkpoint_file=
                         else:
                             v_loss = v_loss_mse + v_loss_bce
                         valid_losses.append(v_loss.item())
+                        pbar_valid.set_postfix(loss=f"{v_loss.item():.4f}")
                 
                 LOSS_valid = sum(valid_losses) / len(valid_losses)
                 print('epoch=%06d  valid_loss=%.6f' % (epoch, LOSS_valid))
