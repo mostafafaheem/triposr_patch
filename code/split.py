@@ -18,7 +18,7 @@ def split(image_path_source, image_path_target, train_percent):
 
 def main():
     import os
-    image_root = './data/image/'
+    image_root = '/data/image/'
     
     if not os.path.exists(image_root):
         print(f"Image root directory {image_root} not found.")

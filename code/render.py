@@ -162,7 +162,7 @@ def mesh(mesh_file, is_vertex_color, image_path, elevation_number=24, azimuth_nu
 
 def main():
     import os
-    mesh_root = './data/mesh/'
+    mesh_root = '/data/furniture/'
     categories = ['chair', 'table', 'sofa', 'bed', 'cabinet', 'bookshelf', 'desk', 'bench', 'stool', 'wardrobe']
     
     if not os.path.exists(mesh_root):
@@ -184,7 +184,7 @@ def main():
                     mesh_file = os.path.join(category_path, filename)
                     obj_name = os.path.splitext(filename)[0]
                     # Expected image_path: ./data/image/[source]/[category]/[object_name]/images_mesh/
-                    image_path = f'./data/image/{source}/{category}/{obj_name}/images_mesh/'
+                    image_path = f'/data/image/{source}/{category}/{obj_name}/images_mesh/'
                     mesh(mesh_file=mesh_file, is_vertex_color=0, image_path=image_path)
 
 if __name__ == '__main__':    #conda install fvcore iopath pytorch3d -c fvcore -c iopath -c pytorch3d
