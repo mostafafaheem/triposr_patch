@@ -140,7 +140,7 @@ def infer(image_size, image_path, output_file, remove_bg, foreground_ratio, rend
     print('superv >>> image ok, network to') 
     from network import TSR
     model = TSR(img_size=image_size, depth=16, embed_dim=768, num_channels=1024, num_layers=16, cross_attention_dim=768, radius=3, valid_thresh=0.001, num_samples_per_ray=128, n_hidden_layers=9, official=True)
-    model.load_state_dict(torch.load('./ckpt/TripoSR/model.ckpt', map_location='cpu'))
+    model.load_state_dict(torch.load('/data/ckpt/model.ckpt', map_location='cpu'))
     model.to(device)
 
     print('superv >>> network ok, infer to')
@@ -205,7 +205,7 @@ def train(image_size, batch_size, epochs, checkpoint_path, best_checkpoint_file=
     # Use official TripoSR parameters for full checkpoint training
     model = TSR(img_size=image_size, depth=16, embed_dim=768, num_channels=1024, num_layers=16, cross_attention_dim=768, radius=3, valid_thresh=0.001, num_samples_per_ray=128, n_hidden_layers=9, official=True)
     
-    checkpoint_file = './ckpt/TripoSR/model.ckpt'
+    checkpoint_file = '/data/ckpt/model.ckpt'
     if os.path.exists(checkpoint_file):
         print(f"Loading checkpoint from {checkpoint_file}")
         model.load_state_dict(torch.load(checkpoint_file, map_location='cpu'))
@@ -314,7 +314,7 @@ def train(image_size, batch_size, epochs, checkpoint_path, best_checkpoint_file=
 
 def main(device=['cpu','cuda'][torch.cuda.is_available()]):
     #infer(image_size=512, image_path=['/data/image/test/images/Lion.png'][0], output_file='./outs/stereo/test/Lion.obj', remove_bg=True, foreground_ratio=0.85, render_video=True, device=device)
-    train(image_size=[512,64][1], batch_size=1, epochs=10, checkpoint_path='./outs/ckpt/', best_checkpoint_file='./outs/ckpt/checkpoint.pth', device=device)
+    train(image_size=[512,64][1], batch_size=1, epochs=10, checkpoint_path='/data/ckpt/', best_checkpoint_file='/data/ckpt/checkpoint.pth', device=device)
 
 if __name__ == '__main__':  #cls; python -Bu superv.py
     main()
