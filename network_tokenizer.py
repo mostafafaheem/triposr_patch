@@ -134,12 +134,12 @@ class VisionTransformer(torch.nn.Module):  #https://github.com/rwightman/pytorch
             torch.nn.init.constant_(m.weight, 1.0)
 
     def _interpolate_pos_encoding(self, x, w, h):
-        npatch = x.shape[1] - 1
-        N = self.pos_embed.shape[1] - 1
+        npatch = x.shape[1]
+        N = self.pos_embed.shape[1]
         if npatch == N and w == h:
             return self.pos_embed
         #class_pos_embed = self.pos_embed[:, 0]
-        patch_pos_embed = self.pos_embed[:, 1:]
+        patch_pos_embed = self.pos_embed
         dim = x.shape[-1]
         w0 = w // self.patch_embed.patch_size
         h0 = h // self.patch_embed.patch_size

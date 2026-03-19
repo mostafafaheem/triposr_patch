@@ -51,8 +51,8 @@ class VisionDataset(torch.utils.data.Dataset):
 
     def __init__(self, is_train, data_path, image_size):
         def pick_pose_from_file(data_file):
-            item = data_file[len('image__'):-len('.png')].split('__')  #image__distance_2.30__elevation_330__azimuth_330.png
-            distance = float(item[0][len('distance_'):])
+            item = data_file[len('image__'):-len('.png')].split('__')  #image__distance_2_0__elevation_330__azimuth_330.png
+            distance = float(item[0][len('distance_'):].replace('_', '.'))
             elevation = int(item[1][len('elevation_'):])
             azimuth = int(item[2][len('azimuth_'):])
             matrix = self.Coordinate.Rt_to_matrix(*self.Coordinate.view_to_world(torch.tensor([distance]), torch.tensor([azimuth]), torch.tensor([elevation]), is_degree=True))
@@ -68,9 +68,9 @@ class VisionDataset(torch.utils.data.Dataset):
         import PIL
         self.data_all = []
         import glob
-        # Search for images recursively in data_path
+        # Search for images recursively in data_path (e.g. /data/image/[source]/[category]/[id]/images_split/train/)
         # Pattern: image__distance_*.png
-        search_pattern = os.path.join(data_path, "**", "image__*.png")
+        search_pattern = os.path.join(data_path, "**", "train", "image__*.png") if is_train else os.path.join(data_path, "**", "valid", "image__*.png")
         image_files = sorted(glob.glob(search_pattern, recursive=True))
         
         if not image_files:
@@ -196,10 +196,11 @@ def train(image_size, batch_size, epochs, checkpoint_path, best_checkpoint_file=
 
     #images = torch.from_numpy(images[..., :3]).to(device)
     #poses = torch.from_numpy(poses).to(device)
-    #focal = torch.from_numpy(focal).to(device)  #138.88887889922103
-    focal_length = 351.6771/4
-
-    #image_processor = ImagePreprocessor(image_size)
+    # PyTorch3d FoVPerspectiveCameras defaults to fov=60 degrees
+    # focal_length = image_size / (2 * tan(fov / 2))
+    # For fov = 60 degrees, tan(30 deg) ≈ 0.57735
+    fov_degrees = 60.0
+    focal_length = (image_size / 2.0) / math.tan(fov_degrees * math.pi / 360.0)
 
     from network import TSR
     # Use official TripoSR parameters for full checkpoint training
@@ -278,8 +279,8 @@ def train(image_size, batch_size, epochs, checkpoint_path, best_checkpoint_file=
                 target_img_reshaped = target_img.view(-1, image_size, image_size, 3).permute(0, 3, 1, 2)
                 loss_lpips = loss_fn_vgg((image_pred_reshaped * 2) - 1, (target_img_reshaped * 2) - 1).mean()
                 # Loss = (1/n other views mse + current view lpips + current view mask bce)
-                loss = loss_lpips + loss_bce
-                print('loss', loss.item(), 'lpips', loss_lpips.item(), 'bce', loss_bce.item())
+                loss = loss_mse + loss_lpips + loss_bce
+                print('loss', loss.item(), 'mse', loss_mse.item(), 'lpips', loss_lpips.item(), 'bce', loss_bce.item())
             else:
                 loss = loss_mse + loss_bce
                 print('loss', loss.item(), 'mse', loss_mse.item(), 'bce', loss_bce.item())
@@ -290,19 +291,63 @@ def train(image_size, batch_size, epochs, checkpoint_path, best_checkpoint_file=
             loss.backward()
             optimizer.step()   
 
-            if index%1==0:
+            if index % 200 == 0:
                 save_image(target_img[0][0], image_pred[0][0], target_msk[0][0], mask_pred[0][0], flag='train', epoch=epoch, index=index)  
 
                 mesh_path = './outs/image/'+'train'+'/'
                 os.makedirs(mesh_path, exist_ok=True)
                 mesh = model.extract_mesh(scene_codes)[0]
-                mesh.export(os.path.join(mesh_path, "mesh__epoch_{:04d}.obj".format(epoch)))  #.ply          
+                mesh.export(os.path.join(mesh_path, "mesh__epoch_{:04d}__index_{:04d}.obj".format(epoch, index)))  #.ply
 
         LOSS_train = sum(losses)/len(losses)
-        print('epoch=%06d  loss=%.6f'%(epoch, LOSS_train))
+        print('epoch=%06d  train_loss=%.6f'%(epoch, LOSS_train))
 
-        scheduler.step()
+        # --- Validation Loop ---
+        try:
+            dataset_valid = VisionDataset(is_train=0, data_path='/data/image/', image_size=image_size)
+            if len(dataset_valid) > 0:
+                dataloader_valid = torch.utils.data.DataLoader(dataset_valid, batch_size=batch_size, shuffle=False, num_workers=1)
+                model.eval()
+                valid_losses = []
+                with torch.no_grad():
+                    for val_idx, (v_images, v_masks, v_poses) in enumerate(dataloader_valid):
+                        v_img = v_images.to(device)[:, None]
+                        v_msk = v_masks.to(device)[:, None]
+                        v_pos = v_poses.to(device)
+
+                        v_scene_codes = model(v_img)
+                        v_images_all = []
+                        v_masks_all = []
+                        for idx, scene_code in enumerate(v_scene_codes):
+                            rays_o, rays_d = get_ray_bundle(height=image_size, width=image_size, focal_length=focal_length, tform_cam2world=v_pos[idx])
+                            img_out, alpha_out = model.renderer(model.decoder, scene_code, rays_o, rays_d)
+                            v_images_all.append(img_out.unsqueeze(0))
+                            v_masks_all.append(alpha_out.unsqueeze(0))
+                        
+                        v_image_pred = torch.stack(v_images_all, dim=0)
+                        v_mask_pred = torch.stack(v_masks_all, dim=0)
+
+                        v_loss_mse = torch.nn.functional.mse_loss(v_image_pred, v_img)
+                        v_loss_bce = torch.nn.functional.binary_cross_entropy(v_mask_pred.clamp(1e-5, 1-1e-5), v_msk)
+                        
+                        if loss_fn_vgg is not None:
+                            v_img_pred_reshaped = v_image_pred.view(-1, image_size, image_size, 3).permute(0, 3, 1, 2)
+                            v_img_targ_reshaped = v_img.view(-1, image_size, image_size, 3).permute(0, 3, 1, 2)
+                            v_loss_lpips = loss_fn_vgg((v_img_pred_reshaped * 2) - 1, (v_img_targ_reshaped * 2) - 1).mean()
+                            v_loss = v_loss_mse + v_loss_lpips + v_loss_bce
+                        else:
+                            v_loss = v_loss_mse + v_loss_bce
+                        valid_losses.append(v_loss.item())
+                
+                LOSS_valid = sum(valid_losses) / len(valid_losses)
+                print('epoch=%06d  valid_loss=%.6f' % (epoch, LOSS_valid))
+                model.train()
+        except Exception as e:
+            print(f"Validation skipped or failed: {e}")
+        # -----------------------
+
         torch.nn.utils.clip_grad_norm_(model.parameters(), 2.0)
+        scheduler.step()
 
         # Save model checkpoint
         os.makedirs(checkpoint_path, exist_ok=True)

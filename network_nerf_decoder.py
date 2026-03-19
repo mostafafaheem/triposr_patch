@@ -46,4 +46,3 @@ class NeRFMLP(torch.nn.Module):
     def forward(self, x):
         features = self.layers(x)
         return {"density": features[..., 0:1], "features": features[..., 1:4]}
-
