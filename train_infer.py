@@ -302,7 +302,6 @@ def train(image_size, batch_size, epochs, checkpoint_path, best_checkpoint_file=
         LOSS_train = sum(losses)/len(losses)
         print('epoch=%06d  train_loss=%.6f'%(epoch, LOSS_train))
 
-        # --- Validation Loop ---
         try:
             dataset_valid = VisionDataset(is_train=0, data_path='/data/image/', image_size=image_size)
             if len(dataset_valid) > 0:
@@ -344,7 +343,6 @@ def train(image_size, batch_size, epochs, checkpoint_path, best_checkpoint_file=
                 model.train()
         except Exception as e:
             print(f"Validation skipped or failed: {e}")
-        # -----------------------
 
         torch.nn.utils.clip_grad_norm_(model.parameters(), 2.0)
         scheduler.step()
@@ -359,7 +357,7 @@ def train(image_size, batch_size, epochs, checkpoint_path, best_checkpoint_file=
 
 def main(device=['cpu','cuda'][torch.cuda.is_available()]):
     #infer(image_size=512, image_path=['/data/image/test/images/Lion.png'][0], output_file='./outs/stereo/test/Lion.obj', remove_bg=True, foreground_ratio=0.85, render_video=True, device=device)
-    train(image_size=[512,64][1], batch_size=1, epochs=10, checkpoint_path='/data/ckpt/', best_checkpoint_file='/data/ckpt/checkpoint.pth', device=device)
+    train(image_size=512, batch_size=16, epochs=10, checkpoint_path='/data/ckpt/', best_checkpoint_file='/data/ckpt/checkpoint.pth', device=device)
 
 if __name__ == '__main__':  #cls; python -Bu superv.py
     main()
