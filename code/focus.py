@@ -27,7 +27,7 @@ def focus(image_source_path, image_target_path):
 
 def main():
     import os
-    image_root = './data/image/'
+    image_root = '/data/image/'
     
     if not os.path.exists(image_root):
         print(f"Image root directory {image_root} not found.")
